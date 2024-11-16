@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neon Maze</title>
+    <script>
+        // Create favicon dynamically
+        window.onload = function() {
+            // Create a canvas for the favicon
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;  // Standard favicon size
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+
+            // Draw blue ball with glow
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillRect(0, 0, 32, 32);
+
+            // Draw glow
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(0, 195, 255, 1)');
+            gradient.addColorStop(0.6, 'rgba(0, 195, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 195, 255, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(16, 16, 16, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw core
+            ctx.fillStyle = 'rgb(0, 195, 255)';
+            ctx.beginPath();
+            ctx.arc(16, 16, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Create favicon link element
+            const link = document.createElement('link');
+            link.type = 'image/x-icon';
+            link.rel = 'shortcut icon';
+            link.href = canvas.toDataURL("image/x-icon");
+            
+            // Remove existing favicon if any
+            const existingFavicon = document.querySelector('link[rel="shortcut icon"]');
+            if (existingFavicon) {
+                document.head.removeChild(existingFavicon);
+            }
+            
+            // Add new favicon
+            document.head.appendChild(link);
+        };
+    </script>
+    <style>
+        @font-face {
+            font-family: 'PressStart2P';
+            src: url('PressStart2P-Regular.ttf') format('truetype');
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: black;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+    <link rel="preload" href="PressStart2P-Regular.ttf" as="font" type="font/ttf" crossorigin>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <script src="settings.js"></script>
+    <script src="sound_manager.js"></script>
+    <script src="highscores.js"></script>
+    <script src="game_objects.js"></script>
+    <script src="game.js"></script>
+    <script src="main.js"></script>
+</body>
+</html> 
