@@ -76,7 +76,7 @@ class Game {
         // Initialize direction tracking
         this.attempted_direction = null;
         
-        // Remove key state tracking since we'll handle movement directly
+        // Modify event listener
         document.addEventListener('keydown', (event) => {
             this.handleKeyDown(event);
         });
@@ -84,9 +84,6 @@ class Game {
         // Initialize game loop
         this.animate = this.animate.bind(this);
         requestAnimationFrame(this.animate);
-        
-        // Add pulsing effect toggle
-        this.pulsing_enabled = true;
     }
     
     loadFonts() {
@@ -139,65 +136,23 @@ class Game {
             return;
         }
         
-        if (this.game_state === "PLAYING") {
-            // Handle movement keys immediately if not in bot mode
-            if (!this.bot_mode) {
-                let new_direction = null;
-                switch(event.key) {
-                    case 'ArrowUp':
-                        new_direction = [0, -1];
-                        break;
-                    case 'ArrowDown':
-                        new_direction = [0, 1];
-                        break;
-                    case 'ArrowLeft':
-                        new_direction = [-1, 0];
-                        break;
-                    case 'ArrowRight':
-                        new_direction = [1, 0];
-                        break;
-                }
-                if (new_direction) {
-                    // Store the attempted direction - will be processed in update()
-                    this.attempted_direction = new_direction;
-                }
-            }
-            
-            // Handle other keys
+        if (this.game_state === "PLAYING" && !this.bot_mode) {
             switch(event.key) {
-                case 'i':
-                case 'I':
-                    this.debug_light_on = !this.debug_light_on;
-                    if (this.debug_light_on) {
-                        this.light_power_until = Infinity;
-                    } else {
-                        this.light_power_until = 0;
-                    }
+                case 'ArrowUp':
+                    this.current_direction = [0, -1];
+                    event.preventDefault();
                     break;
-                case 'b':
-                case 'B':
-                    this.bot_mode = !this.bot_mode;
-                    console.log(`Bot mode ${this.bot_mode ? 'enabled' : 'disabled'}`);
+                case 'ArrowDown':
+                    this.current_direction = [0, 1];
+                    event.preventDefault();
                     break;
-                case 'm':
-                case 'M':
-                    this.sound_manager.toggle_mute();
+                case 'ArrowLeft':
+                    this.current_direction = [-1, 0];
+                    event.preventDefault();
                     break;
-                case 'Escape':
-                    console.log("Game Over!");
-                    this.sound_manager.play('game_over');
-                    this.is_game_active = false;
-                    this.game_time = (Date.now() - this.game_start_time - this.paused_time) / 1000;
-                    this.game_state = "NAME_INPUT";
-                    this.player_name = "";
-                    break;
-                case 'Tab':
-                    event.preventDefault();  // Prevent tab from changing focus
-                    this.show_scores = !this.show_scores;
-                    break;
-                case 'p':
-                case 'P':
-                    this.pulsing_enabled = !this.pulsing_enabled;
+                case 'ArrowRight':
+                    this.current_direction = [1, 0];
+                    event.preventDefault();
                     break;
             }
         }
@@ -251,25 +206,20 @@ class Game {
                 this.player.grid_pos[1] + this.attempted_direction[1]
             ];
             
-            // Calculate grid center positions
-            const current_center_x = this.player.grid_pos[0] * GRID_SIZE + GRID_SIZE/2;
-            const current_center_y = this.player.grid_pos[1] * GRID_SIZE + GRID_SIZE/2;
-            
-            // Check if we're near a grid center
-            const near_center = Math.abs(this.player.pos[0] - current_center_x) < PLAYER_SPEED && 
-                              Math.abs(this.player.pos[1] - current_center_y) < PLAYER_SPEED;
-            
-            // If we're near center and the new direction is valid, change direction immediately
-            if (near_center && this.maze.grid[next_grid_pos[1]][next_grid_pos[0]] === 0) {
+            // Check if new direction is valid
+            if (this.maze.grid[next_grid_pos[1]][next_grid_pos[0]] === 0) {
                 this.current_direction = this.attempted_direction;
                 this.player.last_wall_hit = false;
-                // Snap to center when changing direction
-                this.player.pos = [current_center_x, current_center_y];
-            } else if (!near_center) {
-                // If we're not near center, store the attempted direction for later
-                this.stored_direction = this.attempted_direction;
-            } else if (this.maze.grid[next_grid_pos[1]][next_grid_pos[0]] === 1) {
-                // If new direction hits wall, try to continue in current direction
+                
+                // Important: Immediately update target position if we're at a grid center
+                if (this.player.isAtGridCenter()) {
+                    this.player.target_pos = [
+                        this.player.grid_pos[0] * GRID_SIZE + GRID_SIZE/2 + this.current_direction[0] * GRID_SIZE,
+                        this.player.grid_pos[1] * GRID_SIZE + GRID_SIZE/2 + this.current_direction[1] * GRID_SIZE
+                    ];
+                }
+            } else {
+                // If new direction hits wall, keep going in current direction if possible
                 const continue_grid_pos = [
                     this.player.grid_pos[0] + this.current_direction[0],
                     this.player.grid_pos[1] + this.current_direction[1]
@@ -284,34 +234,13 @@ class Game {
             }
             this.attempted_direction = null;
         }
-        
-        // Check stored direction if we're near center
-        if (this.stored_direction) {
-            const next_grid_pos = [
-                this.player.grid_pos[0] + this.stored_direction[0],
-                this.player.grid_pos[1] + this.stored_direction[1]
-            ];
-            
-            const current_center_x = this.player.grid_pos[0] * GRID_SIZE + GRID_SIZE/2;
-            const current_center_y = this.player.grid_pos[1] * GRID_SIZE + GRID_SIZE/2;
-            
-            const near_center = Math.abs(this.player.pos[0] - current_center_x) < PLAYER_SPEED && 
-                              Math.abs(this.player.pos[1] - current_center_y) < PLAYER_SPEED;
-            
-            if (near_center && this.maze.grid[next_grid_pos[1]][next_grid_pos[0]] === 0) {
-                this.current_direction = this.stored_direction;
-                this.player.last_wall_hit = false;
-                this.player.pos = [current_center_x, current_center_y];
-                this.stored_direction = null;
-            }
-        }
     }
     
     update(deltaTime) {
         if (this.game_state === "PLAYING" && this.is_game_active) {
             this.game_time = (Date.now() - this.game_start_time - this.paused_time) / 1000;
             
-            // Update player with current direction
+            // Use current_direction directly instead of input buffer
             this.player.move(this.current_direction, this.maze);
             
             // Update trail length based on time in level
@@ -526,15 +455,10 @@ class Game {
                 this.game_ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';  // 40/255 ≈ 0.16
                 this.game_ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - STATUS_BAR_HEIGHT);
             } else {
-                // Calculate pulsating values
-                const radius = this.pulsing_enabled ? 
-                    Math.sin(performance.now() / LIGHT_PULSE_SPEED) * LIGHT_PULSE_RADIUS_VARIANCE + LIGHT_RADIUS :
-                    LIGHT_RADIUS + LIGHT_PULSE_RADIUS_VARIANCE;
-                
                 // Draw all walls in white first
                 this.wall_ctx.clearRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - STATUS_BAR_HEIGHT);
                 for (const wall of this.maze.walls) {
-                    this.wall_ctx.fillStyle = WALL_COLOR;
+                    this.wall_ctx.fillStyle = WALL_COLOR;  // White walls
                     this.wall_ctx.beginPath();
                     this.wall_ctx.roundRect(
                         wall.rect.x, wall.rect.y,
@@ -544,40 +468,37 @@ class Game {
                     this.wall_ctx.fill();
                 }
 
-                // Clear the game surface
-                this.game_ctx.clearRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - STATUS_BAR_HEIGHT);
-                
-                // Draw the walls first
-                this.game_ctx.drawImage(this.wall_surface, 0, 0);
-
                 // Create darkness overlay with light cutout
-                this.light_ctx.clearRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - STATUS_BAR_HEIGHT);
-                
-                // Fill with black (make it completely opaque)
-                this.light_ctx.fillStyle = 'rgb(0, 0, 0)';  // Changed from 'rgba(0, 0, 0, 0.98)' to solid black
-                this.light_ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - STATUS_BAR_HEIGHT);
+                const darkness = document.createElement('canvas');
+                darkness.width = WINDOW_WIDTH;
+                darkness.height = WINDOW_HEIGHT - STATUS_BAR_HEIGHT;
+                const darkness_ctx = darkness.getContext('2d');
+
+                // Fill with black
+                darkness_ctx.fillStyle = BLACK;
+                darkness_ctx.fillRect(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT - STATUS_BAR_HEIGHT);
 
                 // Cut out light circle using 'destination-out'
-                this.light_ctx.globalCompositeOperation = 'destination-out';
-                const gradient = this.light_ctx.createRadialGradient(
+                darkness_ctx.globalCompositeOperation = 'destination-out';
+                const gradient = darkness_ctx.createRadialGradient(
                     this.player.pos[0], this.player.pos[1], 0,
-                    this.player.pos[0], this.player.pos[1], radius
+                    this.player.pos[0], this.player.pos[1], LIGHT_RADIUS
                 );
 
                 gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-                gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.2)');  // Made the fade steeper
-                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');  // Complete darkness starts earlier
+                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
-                this.light_ctx.fillStyle = gradient;
-                this.light_ctx.beginPath();
-                this.light_ctx.arc(this.player.pos[0], this.player.pos[1], radius, 0, Math.PI * 2);
-                this.light_ctx.fill();
+                darkness_ctx.fillStyle = gradient;
+                darkness_ctx.beginPath();
+                darkness_ctx.arc(this.player.pos[0], this.player.pos[1], LIGHT_RADIUS, 0, Math.PI * 2);
+                darkness_ctx.fill();
 
-                // Reset composite operation
-                this.light_ctx.globalCompositeOperation = 'source-over';
+                // Draw the walls
+                this.game_ctx.drawImage(this.wall_surface, 0, 0);
 
-                // Apply the darkness/light effect
-                this.game_ctx.drawImage(this.light_surface, 0, 0);
+                // Apply darkness overlay
+                this.game_ctx.drawImage(darkness, 0, 0);
 
                 // Draw visible entities
                 this.draw_visible_entities();
@@ -676,11 +597,7 @@ class Game {
             const heart_positions = this.getRandomElements(valid_spawn_positions,
                                                          Math.min(num_hearts, valid_spawn_positions.length));
             for (const pos of heart_positions) {
-                const adjusted_pos = [
-                    pos[0],
-                    pos[1] + GRID_SIZE/2  // Changed from minus to plus to move down
-                ];
-                this.hearts.push(new Heart(adjusted_pos));
+                this.hearts.push(new Heart(pos));
                 valid_spawn_positions.splice(valid_spawn_positions.indexOf(pos), 1);
             }
         }
@@ -768,7 +685,7 @@ class Game {
         const score = Math.round(lpm * levels * 100) / 100;
         
         // Calculate widths to evenly space elements
-        const total_width = WINDOW_WIDTH - (2 * STATUS_PADDING);
+        const total_width = WINDOW_WIDTH - (2 * STATUS_PADDING) - (this.lives * HEART_SIZE * 2);
         const section_width = total_width / 4;
         
         // Create text surfaces with adjusted positions
@@ -788,18 +705,11 @@ class Game {
             this.ctx.fillText(text, x, y);
         }
         
-        // Draw lives in status bar (right side)
-        const heart_spacing = HEART_SIZE * 1.5;  // Spacing between hearts
-        const start_x = WINDOW_WIDTH - STATUS_PADDING - (heart_spacing * (this.lives - 1)) - HEART_SIZE;
-        
-        // Adjust vertical position to be centered in status bar
-        const heart_y = (STATUS_BAR_HEIGHT - HEART_SIZE) / 2;  // Changed this line
-        
+        // Draw lives in status bar (right side, with more space)
+        const heart_spacing = HEART_SIZE * 2;
+        const start_x = WINDOW_WIDTH - STATUS_PADDING - (heart_spacing * this.lives);
         for (let i = 0; i < this.lives; i++) {
-            const heart_pos = [
-                start_x + (i * heart_spacing), 
-                heart_y  // Use the calculated centered y position
-            ];
+            const heart_pos = [start_x + (i * heart_spacing), STATUS_BAR_HEIGHT/2];
             new Heart(heart_pos).draw(this.ctx);
         }
     }
@@ -919,18 +829,13 @@ class Game {
     }
 
     draw_visible_entities() {
-        // Calculate radius with maximum when not pulsing
-        const radius = this.pulsing_enabled ? 
-            Math.sin(performance.now() / LIGHT_PULSE_SPEED) * LIGHT_PULSE_RADIUS_VARIANCE + LIGHT_RADIUS :
-            LIGHT_RADIUS + LIGHT_PULSE_RADIUS_VARIANCE;
-            
         // Draw visible enemies
         for (const enemy of this.enemies) {
             const dx = enemy.pos[0] - this.player.pos[0];
             const dy = enemy.pos[1] - this.player.pos[1];
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance <= radius) {
-                const visibility = 1.0 - (distance / radius);
+            if (distance <= LIGHT_RADIUS) {
+                const visibility = 1.0 - (distance / LIGHT_RADIUS);
                 enemy.draw(this.game_ctx, visibility);
             }
         }
@@ -940,8 +845,8 @@ class Game {
             const dx = heart.pos[0] - this.player.pos[0];
             const dy = heart.pos[1] - this.player.pos[1];
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance <= radius) {
-                const visibility = 1.0 - (distance / radius);
+            if (distance <= LIGHT_RADIUS) {
+                const visibility = 1.0 - (distance / LIGHT_RADIUS);
                 heart.draw(this.game_ctx, visibility);
             }
         }
@@ -951,8 +856,8 @@ class Game {
             const dx = orb.pos[0] - this.player.pos[0];
             const dy = orb.pos[1] - this.player.pos[1];
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance <= radius) {
-                const visibility = 1.0 - (distance / radius);
+            if (distance <= LIGHT_RADIUS) {
+                const visibility = 1.0 - (distance / LIGHT_RADIUS);
                 orb.draw(this.game_ctx, visibility);
             }
         }

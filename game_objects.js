@@ -18,40 +18,55 @@ class Player {
         );
         this.sound_manager = sound_manager;
         this.last_wall_hit = false;
+        this.current_direction = [0, 0];  // Track current movement direction
     }
     
     move(direction, maze) {
-        // Calculate next position
-        const next_pos = [
-            this.pos[0] + direction[0] * PLAYER_SPEED,
-            this.pos[1] + direction[1] * PLAYER_SPEED
-        ];
-        
-        // Calculate current and next grid positions
-        const next_grid_pos = [
-            Math.floor(next_pos[0] / GRID_SIZE),
-            Math.floor(next_pos[1] / GRID_SIZE)
-        ];
-        
-        // Calculate grid center positions
-        const current_center_x = this.grid_pos[0] * GRID_SIZE + GRID_SIZE/2;
-        const current_center_y = this.grid_pos[1] * GRID_SIZE + GRID_SIZE/2;
-        
-        // Check if we're near a grid center
-        const near_center = Math.abs(this.pos[0] - current_center_x) < PLAYER_SPEED && 
-                          Math.abs(this.pos[1] - current_center_y) < PLAYER_SPEED;
-        
-        // If we're near center and would hit a wall, snap to center
-        if (near_center && maze.grid[next_grid_pos[1]][next_grid_pos[0]] === 1) {
-            this.pos = [current_center_x, current_center_y];
-            return;
+        // If we're at our target position, check for new direction
+        if (this.pos[0] === this.target_pos[0] && this.pos[1] === this.target_pos[1]) {
+            // Calculate new grid position based on input direction
+            const new_grid_pos = [
+                this.grid_pos[0] + direction[0],
+                this.grid_pos[1] + direction[1]
+            ];
+            
+            // Calculate exact target position (center of grid cell)
+            const new_target = [
+                new_grid_pos[0] * GRID_SIZE + GRID_SIZE/2,
+                new_grid_pos[1] * GRID_SIZE + GRID_SIZE/2
+            ];
+            
+            // First try the new direction
+            if (maze.grid[new_grid_pos[1]][new_grid_pos[0]] === 0) {
+                this.current_direction = direction;
+                this.grid_pos = new_grid_pos;
+                this.target_pos = new_target;
+                this.last_wall_hit = false;
+            }
+            // If new direction is blocked, try continuing in current direction
+            else if (this.current_direction[0] !== 0 || this.current_direction[1] !== 0) {
+                const continue_grid_pos = [
+                    this.grid_pos[0] + this.current_direction[0],
+                    this.grid_pos[1] + this.current_direction[1]
+                ];
+                
+                const continue_target = [
+                    continue_grid_pos[0] * GRID_SIZE + GRID_SIZE/2,
+                    continue_grid_pos[1] * GRID_SIZE + GRID_SIZE/2
+                ];
+                
+                if (maze.grid[continue_grid_pos[1]][continue_grid_pos[0]] === 0) {
+                    this.grid_pos = continue_grid_pos;
+                    this.target_pos = continue_target;
+                } else if (!this.last_wall_hit) {
+                    this.sound_manager.play('wall_hit');
+                    this.last_wall_hit = true;
+                }
+            }
         }
         
-        // If we can move, update position and trail
-        if (maze.grid[next_grid_pos[1]][next_grid_pos[0]] === 0) {
-            this.pos = next_pos;
-            this.grid_pos = next_grid_pos;
-            
+        // Move towards target position
+        if (this.pos[0] !== this.target_pos[0] || this.pos[1] !== this.target_pos[1]) {
             this.trail.push({
                 pos: [...this.pos],
                 time: performance.now()
@@ -61,12 +76,20 @@ class Player {
                 this.trail.shift();
             }
             
-            this.last_wall_hit = false;
-        } else {
-            // If we hit a wall, align to grid
-            this.pos = [
-                this.grid_pos[0] * GRID_SIZE + GRID_SIZE/2,
-                this.grid_pos[1] * GRID_SIZE + GRID_SIZE/2
+            const dx = this.target_pos[0] - this.pos[0];
+            const dy = this.target_pos[1] - this.pos[1];
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= this.speed) {
+                this.pos = [...this.target_pos];
+            } else {
+                this.pos[0] += (dx / distance) * this.speed;
+                this.pos[1] += (dy / distance) * this.speed;
+            }
+            
+            this.grid_pos = [
+                Math.floor(this.pos[0] / GRID_SIZE),
+                Math.floor(this.pos[1] / GRID_SIZE)
             ];
         }
     }
@@ -149,12 +172,8 @@ class Maze {
     }
     
     get_visible_walls(player_pos, light_radius) {
-        const game = window.gameInstance;
-        const radius = game && game.pulsing_enabled ? 
-            Math.sin(performance.now() / LIGHT_PULSE_SPEED) * LIGHT_PULSE_RADIUS_VARIANCE + light_radius :
-            light_radius + LIGHT_PULSE_RADIUS_VARIANCE;
-        
         return this.walls.filter(wall => {
+            // Check if any corner of the wall is within light radius
             const corners = [
                 [wall.rect.x, wall.rect.y],
                 [wall.rect.x + wall.rect.width, wall.rect.y],
@@ -165,7 +184,7 @@ class Maze {
             return corners.some(corner => {
                 const dx = corner[0] - player_pos[0];
                 const dy = corner[1] - player_pos[1];
-                return Math.sqrt(dx * dx + dy * dy) <= radius;
+                return Math.sqrt(dx * dx + dy * dy) <= light_radius;
             });
         });
     }
@@ -353,29 +372,30 @@ class Enemy {
 class Heart {
     constructor(pos) {
         this.pos = pos;
-        this.radius = HEART_SIZE / 2;
+        this.radius = HEART_RADIUS;
     }
     
     draw(ctx, visibility = 1.0) {
         // Draw a simple heart shape
-        ctx.fillStyle = `rgba(255, 0, 0, ${visibility})`;
+        ctx.fillStyle = `rgba(255, 0, 0, ${visibility})`;  // Red with visibility
         ctx.beginPath();
         
         // Scale heart based on radius
-        const scale = this.radius / 10;
+        const scale = this.radius / 10;  // Assuming base size of 10
         
-        // Move to center position and scale
-        ctx.save();
+        // Move to center position
         ctx.translate(this.pos[0], this.pos[1]);
         ctx.scale(scale, scale);
         
-        // Draw heart path centered at (0,0)
-        ctx.moveTo(0, 0);  // Start at center
-        ctx.bezierCurveTo(-10, -8, -10, -16, 0, -8);  // Left curve
-        ctx.bezierCurveTo(10, -16, 10, -8, 0, 0);     // Right curve
+        // Draw heart path
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(-10, -8, -10, -16, 0, -16);
+        ctx.bezierCurveTo(10, -16, 10, -8, 0, 0);
         
         ctx.fill();
-        ctx.restore();
+        
+        // Reset transformations
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 }
 

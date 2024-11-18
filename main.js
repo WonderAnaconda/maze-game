@@ -5,7 +5,6 @@ function main() {
     
     // Create and start game
     const game = new Game(initialMazeData);
-    window.gameInstance = game;  // Store game instance globally
 }
 
 // Start the game when the page loads

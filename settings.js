@@ -25,7 +25,7 @@ const GRID_HEIGHT = Math.floor((WINDOW_HEIGHT - STATUS_BAR_HEIGHT) / GRID_SIZE);
 // Game settings
 const PLAYER_SIZE = 20;
 const PLAYER_SPEED = 5;
-const LIGHT_RADIUS = 100;
+const LIGHT_RADIUS = 50;
 const GOAL_SIZE = 6;
 const WALL_CORNER_RADIUS = 2;
 
@@ -82,8 +82,3 @@ const PLAYER_INNER_GLOW = 0.4;  // Intensity of the inner bright core
 
 // Trail settings
 const TRAIL_GLOW_SIZE = 1.2;  // How much the trail segments glow
-
-// Light pulsation settings
-const LIGHT_PULSE_RADIUS_VARIANCE = 10;  // Light radius will vary by ±10 pixels
-const LIGHT_PULSE_INTENSITY_VARIANCE = 20;  // Light intensity will vary by ±20 units
-const LIGHT_PULSE_SPEED = 80;  // One complete pulse cycle takes 0.5 seconds (500ms)
