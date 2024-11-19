@@ -9,6 +9,7 @@ const NEON_BLUE = "rgb(0, 195, 255)";
 const WALL_COLOR = "rgb(255, 255, 255)";
 const GOAL_COLOR = "rgb(255, 0, 0)";
 const DEBUG_LIGHT = 0;
+const NEON_GREEN = "rgb(57, 255, 20)";  // Add this neon green color
 
 // Status bar settings
 const STATUS_BAR_HEIGHT = 50;
@@ -65,7 +66,7 @@ const SOUNDS = {
 // Additional constants from Python code
 const STARTING_LIVES = 3;
 const INVINCIBILITY_TIME = 2000; // 2 seconds in milliseconds
-const LIGHT_ORB_DURATION = 5000; // 5 seconds in milliseconds
+const LIGHT_ORB_DURATION = 3000; // 3 seconds in milliseconds
 const LIGHT_ORB_SPAWN_CHANCE = 0.7;
 const MAX_LIVES = 5;
 const BACKGROUND_VOLUME = 0.1;
@@ -73,6 +74,7 @@ const BACKGROUND_VOLUME = 0.1;
 // Add at the top with other size constants
 const HEART_SIZE = PLAYER_SIZE;  // Make hearts same size as player
 const HEART_RADIUS = PLAYER_SIZE / 2;
+const HEART_COLOR = NEON_GREEN;  // Use neon green for hearts
 
 // Add new glow settings
 const PLAYER_GLOW_COLOR = "rgb(0, 195, 255)";  // Matches NEON_BLUE

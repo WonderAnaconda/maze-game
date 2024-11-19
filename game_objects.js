@@ -376,15 +376,20 @@ class Heart {
     }
     
     draw(ctx, visibility = 1.0) {
+        const color = `rgba(${HEART_COLOR.match(/\d+/g).join(',')}, ${visibility})`;
+        this._draw_glowing_circle(ctx, this.pos, this.radius, color);
+    }
+    
+    _draw_glowing_circle(ctx, pos, radius, color) {
         // Draw a simple heart shape
-        ctx.fillStyle = `rgba(255, 0, 0, ${visibility})`;  // Red with visibility
+        ctx.fillStyle = color;
         ctx.beginPath();
         
         // Scale heart based on radius
         const scale = this.radius / 10;  // Assuming base size of 10
         
         // Move to center position
-        ctx.translate(this.pos[0], this.pos[1]);
+        ctx.translate(pos[0], pos[1]);
         ctx.scale(scale, scale);
         
         // Draw heart path

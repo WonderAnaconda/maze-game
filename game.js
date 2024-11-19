@@ -555,10 +555,15 @@ class Game {
         // Create list of valid spawn positions from reachable cells
         const valid_spawn_positions = [];
         for (const [y, x] of reachable_cells) {
-            // Calculate spawn position at exact grid cell center, just like player start_pos
-            const pos = [
+            // Calculate spawn position at exact grid cell center for orbs, offset for hearts
+            const heart_pos = [
                 (x * GRID_SIZE) + (GRID_SIZE / 2),
-                (y * GRID_SIZE) + (GRID_SIZE / 2)
+                (y * GRID_SIZE) + GRID_SIZE  // Hearts offset by full grid cell
+            ];
+            
+            const orb_pos = [
+                (x * GRID_SIZE) + (GRID_SIZE / 2),
+                (y * GRID_SIZE) + (GRID_SIZE / 2)  // Orbs at grid center
             ];
             
             // Check distance from start and end positions using grid coordinates
@@ -571,7 +576,7 @@ class Game {
                 Math.abs(y - start_grid_y) > 3 &&
                 Math.abs(x - end_grid_x) > 3 &&
                 Math.abs(y - end_grid_y) > 3) {
-                valid_spawn_positions.push(pos);
+                valid_spawn_positions.push({ heart_pos, orb_pos });
             }
         }
         
@@ -586,7 +591,7 @@ class Game {
             const enemy_positions = this.getRandomElements(valid_spawn_positions, 
                                                          Math.min(num_enemies, valid_spawn_positions.length));
             for (const pos of enemy_positions) {
-                this.enemies.push(new Enemy(pos));
+                this.enemies.push(new Enemy(pos.orb_pos));  // Use center position for enemies
                 valid_spawn_positions.splice(valid_spawn_positions.indexOf(pos), 1);
             }
         }
@@ -597,7 +602,7 @@ class Game {
             const heart_positions = this.getRandomElements(valid_spawn_positions,
                                                          Math.min(num_hearts, valid_spawn_positions.length));
             for (const pos of heart_positions) {
-                this.hearts.push(new Heart(pos));
+                this.hearts.push(new Heart(pos.heart_pos));  // Use offset position for hearts
                 valid_spawn_positions.splice(valid_spawn_positions.indexOf(pos), 1);
             }
         }
@@ -605,7 +610,7 @@ class Game {
         // Maybe spawn light orb
         if (valid_spawn_positions.length > 0 && Math.random() < LIGHT_ORB_SPAWN_CHANCE) {
             const orb_pos = valid_spawn_positions[Math.floor(Math.random() * valid_spawn_positions.length)];
-            this.light_orbs = [new LightOrb(orb_pos)];
+            this.light_orbs = [new LightOrb(orb_pos.orb_pos)];  // Use center position for orb
         }
     }
     
@@ -684,8 +689,13 @@ class Game {
         const lpm = (levels * 60) / this.game_time || 0;
         const score = Math.round(lpm * levels * 100) / 100;
         
-        // Calculate widths to evenly space elements
-        const total_width = WINDOW_WIDTH - (2 * STATUS_PADDING) - (this.lives * HEART_SIZE * 2);
+        // Calculate space needed for hearts
+        const heart_size = 6;
+        const heart_spacing = heart_size * 2;
+        const hearts_width = (this.lives * heart_spacing) + (STATUS_PADDING * 2);  // Add padding on both sides
+        
+        // Calculate width for text sections with space reserved for hearts
+        const total_width = WINDOW_WIDTH - hearts_width - (2 * STATUS_PADDING);
         const section_width = total_width / 4;
         
         // Create text surfaces with adjusted positions
@@ -705,12 +715,21 @@ class Game {
             this.ctx.fillText(text, x, y);
         }
         
-        // Draw lives in status bar (right side, with more space)
-        const heart_spacing = HEART_SIZE * 2;
-        const start_x = WINDOW_WIDTH - STATUS_PADDING - (heart_spacing * this.lives);
+        // Draw lives as green circles
+        const hearts_start_x = WINDOW_WIDTH - hearts_width + STATUS_PADDING;
+        const hearts_y = STATUS_BAR_HEIGHT / 2;
+        
+        this.ctx.fillStyle = HEART_COLOR;  // Use heart color from settings
         for (let i = 0; i < this.lives; i++) {
-            const heart_pos = [start_x + (i * heart_spacing), STATUS_BAR_HEIGHT/2];
-            new Heart(heart_pos).draw(this.ctx);
+            this.ctx.beginPath();
+            this.ctx.arc(
+                hearts_start_x + (i * heart_spacing),
+                hearts_y,
+                heart_size,
+                0,
+                Math.PI * 2
+            );
+            this.ctx.fill();
         }
     }
 
